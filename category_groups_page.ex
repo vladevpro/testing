@@ -35,7 +35,6 @@ defmodule GameAdminFlaskWeb.CategoryGroupsPage do
   data(uid, :changeset, default: nil)
   data(active_category_group, :map, default: %{id: nil})
   data(target, :list, default: [])
-  data(selected_games, :list, default: [])
 
   def render(assigns) do
     ~F"""
@@ -84,7 +83,6 @@ defmodule GameAdminFlaskWeb.CategoryGroupsPage do
         games={@games}
         sites={@sites}
         target={@target}
-        selected_games={@selected_games}
       />
     {/if}
     <Create
@@ -178,6 +176,10 @@ defmodule GameAdminFlaskWeb.CategoryGroupsPage do
     {:noreply, socket}
   end
 
+  def handle_info({"update_changeset", changeset}, socket) do
+    {:noreply, assign(socket, update_changeset: changeset, target: false)}
+  end
+
   defp changeset_for_update(%{
          id: id,
          uid: uid,
@@ -265,32 +267,20 @@ defmodule GameAdminFlaskWeb.CategoryGroupsPage do
   end
 
   def handle_event(
-      "on_change_update",
-      %{"create_or_update_category_group" => %{"game_ids" => game_ids} = changeset} = params,
-      %{assigns: %{update_changeset: update_changeset, games: games}} = socket
-    ) do
-  selected_games = Enum.filter(games, fn game -> game.value in game_ids end)
-
-  {:noreply,
-  assign(socket,
-    selected_games: selected_games,
-    target: Map.get(params, "_target", []),
-    update_changeset:
-      CreateOrUpdateCategoryGroup.changeset(
-        %{update_changeset | errors: [], valid?: true},
-        changeset
-      )
-  )}
-  end
-
-  def handle_event(
         "on_change_update",
         %{"create_or_update_category_group" => changeset} = params,
         %{assigns: %{update_changeset: update_changeset}} = socket
       ) do
+    target =
+      if Map.get(params, "action") not in [:button_click, :row_select] do
+        Map.get(params, "_target", [])
+      else
+        []
+      end
+
     {:noreply,
      assign(socket,
-       target: Map.get(params, "_target", []),
+       target: target,
        update_changeset:
          CreateOrUpdateCategoryGroup.changeset(
            %{update_changeset | errors: [], valid?: true},
@@ -314,7 +304,7 @@ defmodule GameAdminFlaskWeb.CategoryGroupsPage do
         {
           :noreply,
           socket
-          |> assign(active_category_group: %{id: nil}, update_changeset: nil, uid: nil)
+          |> assign(active_category_group: %{id: nil}, update_changeset: nil, uid: nil, target: false)
           |> assign_category_groups()
         }
 
